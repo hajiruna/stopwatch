@@ -176,11 +176,11 @@ export function Stopwatch() {
               <p className="text-center text-muted-foreground py-4">保存された記録はありません</p>
             )}
             
-            <ul className="space-y-3">
+            <ul className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
               {records?.map((record) => (
                 <li key={record.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-                  <div>
-                    <p className="font-medium">{record.title || "無題"}</p>
+                  <div className="overflow-hidden">
+                    <p className="font-medium text-ellipsis overflow-hidden">{record.title || "無題"}</p>
                     <p className="text-sm text-muted-foreground">{formatTime(record.duration, false)}</p>
                   </div>
                   <Button 
@@ -188,6 +188,7 @@ export function Stopwatch() {
                     size="icon"
                     onClick={() => handleDeleteRecord(record.id)}
                     disabled={deleteMutation.isPending}
+                    className="ml-2 flex-shrink-0"
                   >
                     <Trash2Icon className="h-4 w-4" />
                   </Button>
