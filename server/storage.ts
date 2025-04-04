@@ -19,7 +19,11 @@ export interface IStorage {
 }
 
 // Create database connection
-const sql = neon(process.env.DATABASE_URL!);
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set. Please configure it in your deployment settings.');
+}
+
+const sql = neon(process.env.DATABASE_URL);
 const db = drizzle(sql);
 
 export class DBStorage implements IStorage {
