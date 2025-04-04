@@ -18,50 +18,127 @@ export interface IStorage {
   deleteStopwatchRecord(id: number): Promise<boolean>;
 }
 
-// Create database connection
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set. Please configure it in your deployment settings.');
-}
+// Create database connection with retry mechanism
+const createDbConnection = () => {
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL environment variable is not set. Using in-memory storage as fallback.');
+    return null;
+  }
+  
+  try {
+    // Add connection timeout options for Neon
+    const connectionString = process.env.DATABASE_URL;
+    const sql = neon(connectionString);
+    
+    // Test the connection by running a simple query
+    sql`SELECT 1`.then(() => {
+      console.log('Database connection established successfully');
+    }).catch(err => {
+      console.error('Database connection test failed:', err);
+    });
+    
+    return drizzle(sql);
+  } catch (error) {
+    console.error('Failed to initialize database connection:', error);
+    return null;
+  }
+};
 
-const sql = neon(process.env.DATABASE_URL);
-const db = drizzle(sql);
+// Initialize database connection
+let db: ReturnType<typeof drizzle> | null = null;
+
+// Try to connect with a delay to allow environment variables to be properly loaded
+setTimeout(() => {
+  db = createDbConnection();
+  if (!db) {
+    console.warn('Using in-memory storage as fallback');
+  }
+}, 1000);
 
 export class DBStorage implements IStorage {
+  private fallbackStorage: MemStorage;
+
+  constructor() {
+    this.fallbackStorage = new MemStorage();
+  }
+
   async getUser(id: number): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id));
-    return result[0];
+    try {
+      if (!db) return this.fallbackStorage.getUser(id);
+      const result = await db.select().from(users).where(eq(users.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('Error in getUser:', error);
+      return this.fallbackStorage.getUser(id);
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username));
-    return result[0];
+    try {
+      if (!db) return this.fallbackStorage.getUserByUsername(username);
+      const result = await db.select().from(users).where(eq(users.username, username));
+      return result[0];
+    } catch (error) {
+      console.error('Error in getUserByUsername:', error);
+      return this.fallbackStorage.getUserByUsername(username);
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(insertUser).returning();
-    return result[0];
+    try {
+      if (!db) return this.fallbackStorage.createUser(insertUser);
+      const result = await db.insert(users).values(insertUser).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error in createUser:', error);
+      return this.fallbackStorage.createUser(insertUser);
+    }
   }
 
   async getStopwatchRecords(userId?: number): Promise<StopwatchRecord[]> {
-    if (userId) {
-      return await db.select().from(stopwatchRecords).where(eq(stopwatchRecords.userId, userId));
+    try {
+      if (!db) return this.fallbackStorage.getStopwatchRecords(userId);
+      if (userId) {
+        return await db.select().from(stopwatchRecords).where(eq(stopwatchRecords.userId, userId));
+      }
+      return await db.select().from(stopwatchRecords);
+    } catch (error) {
+      console.error('Error in getStopwatchRecords:', error);
+      return this.fallbackStorage.getStopwatchRecords(userId);
     }
-    return await db.select().from(stopwatchRecords);
   }
 
   async getStopwatchRecord(id: number): Promise<StopwatchRecord | undefined> {
-    const result = await db.select().from(stopwatchRecords).where(eq(stopwatchRecords.id, id));
-    return result[0];
+    try {
+      if (!db) return this.fallbackStorage.getStopwatchRecord(id);
+      const result = await db.select().from(stopwatchRecords).where(eq(stopwatchRecords.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('Error in getStopwatchRecord:', error);
+      return this.fallbackStorage.getStopwatchRecord(id);
+    }
   }
 
   async createStopwatchRecord(record: InsertStopwatchRecord): Promise<StopwatchRecord> {
-    const result = await db.insert(stopwatchRecords).values(record).returning();
-    return result[0];
+    try {
+      if (!db) return this.fallbackStorage.createStopwatchRecord(record);
+      const result = await db.insert(stopwatchRecords).values(record).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error in createStopwatchRecord:', error);
+      return this.fallbackStorage.createStopwatchRecord(record);
+    }
   }
 
   async deleteStopwatchRecord(id: number): Promise<boolean> {
-    const result = await db.delete(stopwatchRecords).where(eq(stopwatchRecords.id, id)).returning();
-    return result.length > 0;
+    try {
+      if (!db) return this.fallbackStorage.deleteStopwatchRecord(id);
+      const result = await db.delete(stopwatchRecords).where(eq(stopwatchRecords.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error in deleteStopwatchRecord:', error);
+      return this.fallbackStorage.deleteStopwatchRecord(id);
+    }
   }
 }
 

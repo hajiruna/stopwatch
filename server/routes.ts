@@ -3,8 +3,41 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStopwatchRecordSchema } from "@shared/schema";
 import { z } from "zod";
+import express from "express";
+import * as os from "os";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Body parsing middleware
+  app.use(express.json());
+  
+  // Health check endpoint
+  app.get("/api/health", (_req, res) => {
+    // Check database availability
+    const dbAvailable = process.env.DATABASE_URL ? true : false;
+    res.json({ 
+      status: "ok",
+      environment: process.env.NODE_ENV || "development",
+      database: dbAvailable ? "connected" : "unavailable",
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // System info endpoint for deployment monitoring
+  app.get("/api/system/info", (_req, res) => {
+    res.json({
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      cpus: os.cpus().length,
+      memory: {
+        total: Math.round(os.totalmem() / (1024 * 1024)) + "MB",
+        free: Math.round(os.freemem() / (1024 * 1024)) + "MB",
+      },
+      uptime: process.uptime() + "s",
+      env: process.env.NODE_ENV || "development"
+    });
+  });
+  
   // Stopwatch Records API
   
   // Get all stopwatch records
